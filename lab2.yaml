@@ -1,0 +1,91 @@
+# ============================================================
+# ContainerLab топология для Лабораторной работы №2
+# "Эмуляция распределённой корпоративной сети связи,
+#  настройка статической маршрутизации между филиалами"
+# ============================================================
+#
+# Схема сети компании "RogalKopita Games":
+#
+#                         PC3
+#                          |  (eth2)
+#                       R01.BRL (Берлин)
+#                      /         \
+#          (eth0/eth0)             (eth1/eth0)
+#                    /               \
+#      R01.MSK (Москва) ------- R01.FRT (Франкфурт)
+#         |      (eth1/eth1)       |
+#        PC1                      PC2
+#         (eth2)                  (eth2)
+#
+# Все роутеры — MikroTik RouterOS (CHR)
+# Все ПК — контейнеры на базе Alpine Linux
+# ============================================================
+
+name: lab2
+
+topology:
+  nodes:
+    # === РОУТЕРЫ ===
+
+    # Роутер московского офиса
+    R01.MSK:
+      kind: vr-ros
+      image: vrnetlab/vr-ros:6.47.9
+      startup-config: R01_MSK.rsc
+
+    # Роутер франкфуртского офиса
+    R01.FRT:
+      kind: vr-ros
+      image: vrnetlab/vr-ros:6.47.9
+      startup-config: R01_FRT.rsc
+
+    # Роутер берлинского офиса
+    R01.BRL:
+      kind: vr-ros
+      image: vrnetlab/vr-ros:6.47.9
+      startup-config: R01_BRL.rsc
+
+    # === КЛИЕНТСКИЕ ПК ===
+
+    # ПК сотрудника в Москве
+    PC1:
+      kind: linux
+      image: alpine:latest
+      exec:
+        - ip link set eth1 up
+        - ip addr add 192.168.10.2/24 dev eth1
+        - ip route add default via 192.168.10.1
+
+    # ПК сотрудника во Франкфурте
+    PC2:
+      kind: linux
+      image: alpine:latest
+      exec:
+        - ip link set eth1 up
+        - ip addr add 192.168.20.2/24 dev eth1
+        - ip route add default via 192.168.20.1
+
+    # ПК сотрудника в Берлине
+    PC3:
+      kind: linux
+      image: alpine:latest
+      exec:
+        - ip link set eth1 up
+        - ip addr add 192.168.30.2/24 dev eth1
+        - ip route add default via 192.168.30.1
+
+  # === СОЕДИНЕНИЯ МЕЖДУ УСТРОЙСТВАМИ ===
+  links:
+    # Линк между Москвой и Берлином (R01.MSK eth1 <-> R01.BRL eth1)
+    - endpoints: ["R01.MSK:eth1", "R01.BRL:eth1"]
+
+    # Линк между Москвой и Франкфуртом (R01.MSK eth2 <-> R01.FRT eth2)
+    - endpoints: ["R01.MSK:eth2", "R01.FRT:eth2"]
+
+    # Линк между Берлином и Франкфуртом (R01.BRL eth2 <-> R01.FRT eth1)
+    - endpoints: ["R01.BRL:eth2", "R01.FRT:eth1"]
+
+    # Подключение ПК к роутерам
+    - endpoints: ["R01.MSK:eth3", "PC1:eth1"]
+    - endpoints: ["R01.FRT:eth3", "PC2:eth1"]
+    - endpoints: ["R01.BRL:eth3", "PC3:eth1"]
